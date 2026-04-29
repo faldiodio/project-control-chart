@@ -14,7 +14,7 @@ st.sidebar.header("⚙️ Control Chart Parameters")
 chart_options = st.sidebar.multiselect(
     "Select Charts to Generate:",
     ["X-Bar R", "X-Bar S", "X-Bar MR", "CUSUM"],
-    default=["X-Bar R", "X-Bar MR", "CUSUM"]
+    default=[]
 )
 
 st.sidebar.markdown("---")
