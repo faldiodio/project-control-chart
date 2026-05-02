@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-# --- PAGE CONFIGURATION ---
+# --- PAGE CONFIGURATION MAIN ---
 st.set_page_config(page_title="Attribute QC Chart Generator", layout="wide")
 st.title("📊 Attribute Control Chart Generator (Plotly)")
 st.markdown("Interactive application for attribute control charts (**p, np, c, u Chart**) with Phase 1 (Base) and Phase 2 (Monitoring) capabilities.")
