@@ -71,7 +71,7 @@ def check_alarms(data, mean_val, ucl, lcl):
     for i in range(n):
         if not valid_mask.iloc[i]: continue
         if data.iloc[i] > ucl or data.iloc[i] < lcl:
-            disp_idx = str(data.index[i]).split('-', 1)[-1] if '-' in str(data.index[i]) else data.index[i]
+            disp_idx = str(data.index[i])
             alarms.append(f"**[Type 0]** Point **{disp_idx}** is out of Control Limits (>UCL or <LCL).")
             violation_indices.add(data.index[i])
 
@@ -82,8 +82,8 @@ def check_alarms(data, mean_val, ucl, lcl):
     for i in range(n - 6):
         if not valid_mask.iloc[i:i+7].all(): continue
         if np.all(signs.iloc[i:i+7] == 1) or np.all(signs.iloc[i:i+7] == -1):
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+6]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+6])
             alarms.append(f"**[Type 1]** **{d_start} to {d_end}**: 7 consecutive points on one side.")
             violation_indices.update(data.index[i:i+7])
             
@@ -92,8 +92,8 @@ def check_alarms(data, mean_val, ucl, lcl):
         if not valid_mask.iloc[i:i+11].all(): continue
         window = signs.iloc[i:i+11]
         if np.sum(window == 1) >= 10 or np.sum(window == -1) >= 10:
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+10]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+10])
             alarms.append(f"**[Type 2]** **{d_start} to {d_end}**: 10 out of 11 points on one side.")
             violation_indices.update(data.index[i:i+11])
             
@@ -102,8 +102,8 @@ def check_alarms(data, mean_val, ucl, lcl):
         if not valid_mask.iloc[i:i+14].all(): continue
         window = signs.iloc[i:i+14]
         if np.sum(window == 1) >= 12 or np.sum(window == -1) >= 12:
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+13]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+13])
             alarms.append(f"**[Type 3]** **{d_start} to {d_end}**: 12 out of 14 points on one side.")
             violation_indices.update(data.index[i:i+14])
             
@@ -112,8 +112,8 @@ def check_alarms(data, mean_val, ucl, lcl):
         if not valid_mask.iloc[i:i+6].all(): continue
         diffs = np.diff(data.iloc[i:i+6])
         if np.all(diffs > 0) or np.all(diffs < 0):
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+5]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+5])
             alarms.append(f"**[Type 4]** **{d_start} to {d_end}**: 6 consecutive points steadily increasing/decreasing.")
             violation_indices.update(data.index[i:i+6])
             
@@ -122,8 +122,8 @@ def check_alarms(data, mean_val, ucl, lcl):
         if not valid_mask.iloc[i:i+3].all(): continue
         window = data.iloc[i:i+3]
         if np.sum(window > mean_val + 2*sigma) >= 2 or np.sum(window < mean_val - 2*sigma) >= 2:
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+2]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+2])
             alarms.append(f"**[Type 5]** **{d_start} to {d_end}**: 2 out of 3 points in Zone A.")
             violation_indices.update(data.index[i:i+3])
             
@@ -132,8 +132,8 @@ def check_alarms(data, mean_val, ucl, lcl):
         if not valid_mask.iloc[i:i+5].all(): continue
         window = data.iloc[i:i+5]
         if np.sum(window > mean_val + sigma) >= 4 or np.sum(window < mean_val - sigma) >= 4:
-            d_start = str(data.index[i]).split('-', 1)[-1]
-            d_end = str(data.index[i+4]).split('-', 1)[-1]
+            d_start = str(data.index[i])
+            d_end = str(data.index[i+4])
             alarms.append(f"**[Type 6]** **{d_start} to {d_end}**: 4 out of 5 points in Zone B or beyond.")
             violation_indices.update(data.index[i:i+5])
 
@@ -159,10 +159,21 @@ with col_ex2:
 st.divider()
 
 st.subheader("📝 Phase 2: Monitoring Data (Optional)")
-use_phase2 = st.checkbox("Enable Phase 2 (Add new observations to evaluate against Phase 1 limits)")
+use_phase2 = st.checkbox("Enable Phase 2 (Add new observations)")
 
+is_recalc = False
 df_phase2 = pd.DataFrame()
+
 if use_phase2:
+    phase2_mode = st.radio(
+        "Phase 2 Analysis Mode:",
+        options=[
+            "📊 1. Monitoring Option (Evaluate Phase 2 data using Phase 1 Limits without altering them)",
+            "🔄 2. Recalculate Option (Calculate new UCL, CL, LCL for Phase 2, display joined chart)"
+        ]
+    )
+    is_recalc = "Recalculate Option" in phase2_mode
+
     col_p2_1, col_p2_2 = st.columns(2)
     with col_p2_1:
         num_groups_p2 = st.number_input("Phase 2: Number of Groups (k)", min_value=1, value=5, step=1)
@@ -173,64 +184,86 @@ if use_phase2:
     index_p2 = [f"Sample {i+1}" for i in range(sample_size_p2)]
     df_phase2 = st.data_editor(pd.DataFrame(0.0, index=index_p2, columns=columns_p2), use_container_width=True, key="p2_editor")
 
+
 if st.button("Generate Combined Charts & Analysis", type="primary"):
     if not chart_options:
         st.warning("Please select at least 1 chart from the left sidebar.")
     
-    # --- PLOTLY RENDER FUNCTION (Handles Phase 1 & 2 Combined) ---
-    def render_combined_row(data_p1, data_p2, mean_val, ucl, lcl, title, y_label):
+    # --- PLOTLY RENDER FUNCTION (Handles Phase 1 & 2 Combined + Recalculate Splitting) ---
+    def render_combined_row(data_p1, data_p2, mean_val, ucl, lcl, title, y_label, mean_val_p2=None, ucl_p2=None, lcl_p2=None):
         col1, col2 = st.columns([3, 1])
         
         internal_p1 = data_p1.copy()
         internal_p1.index = [f"P1-{x}" for x in data_p1.index]
         
         internal_p2 = pd.Series(dtype=float)
-        if data_p2 is not None and not data_p2.empty:
+        has_p2 = data_p2 is not None and not data_p2.empty
+        if has_p2:
             internal_p2 = data_p2.copy()
             internal_p2.index = [f"P2-{x}" for x in data_p2.index]
         
         combined_internal = pd.concat([internal_p1, internal_p2])
         valid_combined = combined_internal.dropna()
         
-        alarms, violation_indices = check_alarms(valid_combined, mean_val, ucl, lcl)
+        has_split_limits = has_p2 and mean_val_p2 is not None
+        
+        # Split Evaluation if Recalculating
+        if has_split_limits:
+            alarms_p1, v_idx_p1 = check_alarms(internal_p1.dropna(), mean_val, ucl, lcl)
+            alarms_p2, v_idx_p2 = check_alarms(internal_p2.dropna(), mean_val_p2, ucl_p2, lcl_p2)
+            
+            alarms = [f"**[Phase 1]** {a}" for a in alarms_p1 if "✅" not in a]
+            alarms += [f"**[Phase 2]** {a}" for a in alarms_p2 if "✅" not in a]
+            if not alarms: alarms.append("✅ Process is in control across both phases.")
+            
+            violation_indices = list(v_idx_p1) + list(v_idx_p2)
+        else:
+            alarms, violation_indices = check_alarms(valid_combined, mean_val, ucl, lcl)
         
         with col1:
             fig = go.Figure()
             
             x_vals = list(range(len(valid_combined)))
             display_labels = [str(x).split('-', 1)[1].replace('Group ', 'G').replace('Sample ', 'S') for x in valid_combined.index]
-            one_sigma = (ucl - mean_val) / 3
+            total_len = len(valid_combined)
+            p1_len = len(internal_p1.dropna())
             
-            # --- ZONES BACKGROUND (With A, B, C Labels) ---
-            # Zone C (1 Sigma) - Upper & Lower
-            fig.add_hrect(y0=mean_val, y1=mean_val + one_sigma, fillcolor="#a8e6cf", opacity=0.3, layer="below", line_width=0, annotation_text="<b>C</b>", annotation_position="right")
-            fig.add_hrect(y0=mean_val - one_sigma, y1=mean_val, fillcolor="#a8e6cf", opacity=0.3, layer="below", line_width=0, annotation_text="<b>C</b>", annotation_position="right")
+            def add_limit_zones(fig_obj, x_start, x_end, mean_v, ucl_v, lcl_v):
+                one_sig = (ucl_v - mean_v) / 3
+                
+                # Zone Rectangles
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=mean_v, y1=mean_v + one_sig, fillcolor="#a8e6cf", opacity=0.3, layer="below", line_width=0)
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=mean_v - one_sig, y1=mean_v, fillcolor="#a8e6cf", opacity=0.3, layer="below", line_width=0)
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=mean_v + one_sig, y1=mean_v + 2*one_sig, fillcolor="#ffd3b6", opacity=0.3, layer="below", line_width=0)
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=mean_v - 2*one_sig, y1=mean_v - one_sig, fillcolor="#ffd3b6", opacity=0.3, layer="below", line_width=0)
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=mean_v + 2*one_sig, y1=ucl_v, fillcolor="#ffaaa5", opacity=0.3, layer="below", line_width=0)
+                fig_obj.add_shape(type="rect", x0=x_start, x1=x_end, y0=lcl_v, y1=mean_v - 2*one_sig, fillcolor="#ffaaa5", opacity=0.3, layer="below", line_width=0)
 
-            # Zone B (2 Sigma) - Upper & Lower
-            fig.add_hrect(y0=mean_val + one_sigma, y1=mean_val + 2*one_sigma, fillcolor="#ffd3b6", opacity=0.3, layer="below", line_width=0, annotation_text="<b>B</b>", annotation_position="right")
-            fig.add_hrect(y0=mean_val - 2*one_sigma, y1=mean_val - one_sigma, fillcolor="#ffd3b6", opacity=0.3, layer="below", line_width=0, annotation_text="<b>B</b>", annotation_position="right")
+                # Boundary Lines
+                fig_obj.add_shape(type="line", x0=x_start, x1=x_end, y0=ucl_v, y1=ucl_v, line=dict(color="red", width=1.5))
+                fig_obj.add_shape(type="line", x0=x_start, x1=x_end, y0=mean_v, y1=mean_v, line=dict(color="blue", width=1.5))
+                fig_obj.add_shape(type="line", x0=x_start, x1=x_end, y0=lcl_v, y1=lcl_v, line=dict(color="red", width=1.5))
+                
+                # Annotations
+                fig_obj.add_annotation(x=x_end, y=ucl_v, text=f"UCL: {ucl_v:.2f}", showarrow=False, xanchor="left", xshift=5)
+                fig_obj.add_annotation(x=x_end, y=mean_v, text=f"CL: {mean_v:.2f}", showarrow=False, xanchor="left", xshift=5)
+                fig_obj.add_annotation(x=x_end, y=lcl_v, text=f"LCL: {lcl_v:.2f}", showarrow=False, xanchor="left", xshift=5)
 
-            # Zone A (3 Sigma) - Upper & Lower
-            fig.add_hrect(y0=mean_val + 2*one_sigma, y1=ucl, fillcolor="#ffaaa5", opacity=0.3, layer="below", line_width=0, annotation_text="<b>A</b>", annotation_position="right")
-            fig.add_hrect(y0=lcl, y1=mean_val - 2*one_sigma, fillcolor="#ffaaa5", opacity=0.3, layer="below", line_width=0, annotation_text="<b>A</b>", annotation_position="right")
-
-            # --- BOUNDARY LINES ---
-            fig.add_hline(y=ucl, line_color="red", line_width=1.5, annotation_text=f"UCL: {ucl:.2f}")
-            fig.add_hline(y=mean_val, line_color="blue", line_width=1.5, annotation_text=f"Center: {mean_val:.2f}")
-            fig.add_hline(y=lcl, line_color="red", line_width=1.5, annotation_text=f"LCL: {lcl:.2f}")
-            
-            for multiplier in [-2, -1, 1, 2]:
-                fig.add_hline(y=mean_val + multiplier*one_sigma, line_color="gray", line_width=1, line_dash="dash", opacity=0.4)
+            # Draw Zones
+            if has_split_limits:
+                add_limit_zones(fig, 0, p1_len - 0.5, mean_val, ucl, lcl)
+                add_limit_zones(fig, p1_len - 0.5, max(total_len - 1, 0), mean_val_p2, ucl_p2, lcl_p2)
+            else:
+                add_limit_zones(fig, 0, max(total_len - 1, 0), mean_val, ucl, lcl)
 
             # --- PLOT OBSERVATIONS (Combined connection line) ---
             fig.add_trace(go.Scatter(x=x_vals, y=valid_combined.values, mode='lines', line=dict(color='#888888', width=1.5), showlegend=False, hoverinfo='skip'))
             
             # --- PHASE 1 MARKERS ---
-            p1_len = len(internal_p1.dropna())
             fig.add_trace(go.Scatter(x=x_vals[:p1_len], y=internal_p1.dropna().values, mode='markers', marker=dict(color='#1f77b4', size=8, symbol='circle'), name='Phase 1 Data', hovertemplate="Sample: %{x}<br>Value: %{y:.2f}<extra></extra>"))
             
             # --- PHASE 2 MARKERS & TRANSITION LINE ---
-            if not internal_p2.empty:
+            if has_p2:
                 p2_len = len(internal_p2.dropna())
                 fig.add_trace(go.Scatter(x=x_vals[p1_len:], y=internal_p2.dropna().values, mode='markers', marker=dict(color='#ff7f0e', size=9, symbol='square'), name='Phase 2 Data', hovertemplate="Sample: %{x}<br>Value: %{y:.2f}<extra></extra>"))
                 fig.add_vline(x=p1_len - 0.5, line_color="black", line_width=2, line_dash="dashdot", annotation_text="Phase Transition", annotation_position="top right")
@@ -249,7 +282,7 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 yaxis_title=y_label,
                 xaxis=dict(tickmode='array', tickvals=x_vals, ticktext=display_labels, tickangle=-45),
                 hovermode="x unified",
-                margin=dict(l=40, r=40, t=60, b=40),
+                margin=dict(l=40, r=60, t=60, b=40),
                 plot_bgcolor="white"
             )
             # Add grid lines
@@ -282,23 +315,43 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
             
         combined_cusum_data = pd.concat([cusum_p1, cusum_p2])
         
-        K = cusum_k * cusum_sigma
-        H = cusum_h * cusum_sigma
+        K_p1 = cusum_k * cusum_sigma
+        H_p1 = cusum_h * cusum_sigma
+        target_p1 = cusum_target
+        
+        target_p2 = target_p1
+        K_p2 = K_p1
+        H_p2 = H_p1
+        
+        if is_recalc and not cusum_p2.empty:
+            target_p2 = cusum_p2.mean()
+            sigma_p2 = cusum_p2.std(ddof=1)
+            if pd.isna(sigma_p2) or sigma_p2 == 0:
+                sigma_p2 = cusum_sigma # Fallback
+            K_p2 = cusum_k * sigma_p2
+            H_p2 = cusum_h * sigma_p2
+            
         cusum_steps = []
         cp_prev, cm_prev = 0, 0
         
         for i, xi in enumerate(combined_cusum_data):
-            dev_plus = xi - (cusum_target + K)
+            # Apply recalculated target and K if in Phase 2
+            current_target = target_p2 if (is_recalc and i >= len(cusum_p1)) else target_p1
+            current_K = K_p2 if (is_recalc and i >= len(cusum_p1)) else K_p1
+            current_H = H_p2 if (is_recalc and i >= len(cusum_p1)) else H_p1
+            
+            dev_plus = xi - (current_target + current_K)
             cp = max(0, dev_plus + cp_prev)
             
-            dev_minus = (cusum_target - K) - xi
+            dev_minus = (current_target - current_K) - xi
             cm = max(0, dev_minus + cm_prev)
             
             cusum_steps.append({
                 "ID": combined_cusum_data.index[i],
                 "xi": xi,
                 "Ci+": cp,
-                "Ci-": cm
+                "Ci-": cm,
+                "H_Active": current_H
             })
             cp_prev, cm_prev = cp, cm
             
@@ -312,6 +365,7 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
             x_vals = list(range(len(df_cusum)))
             display_labels = [str(x).split('-', 1)[1].replace('Sample ', 'S') for x in df_cusum.index]
             p1_len = len(cusum_p1)
+            total_len = len(df_cusum)
             
             # Plot connecting lines
             fig_cusum.add_trace(go.Scatter(x=x_vals, y=df_cusum["Ci+"], mode='lines', line=dict(color='#888888', width=1), showlegend=False, hoverinfo='skip'))
@@ -329,8 +383,19 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 fig_cusum.add_vline(x=p1_len - 0.5, line_color="black", line_width=2, line_dash="dashdot", annotation_text="Phase Transition", annotation_position="top right")
 
             # Decision Interval lines
-            fig_cusum.add_hline(y=H, line_color="red", line_dash="dash", line_width=2, annotation_text=f"+H = {H:.2f}")
-            fig_cusum.add_hline(y=-H, line_color="red", line_dash="dash", line_width=2, annotation_text=f"-H = {-H:.2f}", annotation_position="bottom right")
+            if is_recalc and not cusum_p2.empty:
+                # Phase 1 Lines
+                fig_cusum.add_shape(type="line", x0=0, x1=p1_len-0.5, y0=H_p1, y1=H_p1, line=dict(color="red", width=2, dash="dash"))
+                fig_cusum.add_shape(type="line", x0=0, x1=p1_len-0.5, y0=-H_p1, y1=-H_p1, line=dict(color="red", width=2, dash="dash"))
+                # Phase 2 Lines
+                fig_cusum.add_shape(type="line", x0=p1_len-0.5, x1=max(total_len-1, 0), y0=H_p2, y1=H_p2, line=dict(color="red", width=2, dash="dash"))
+                fig_cusum.add_shape(type="line", x0=p1_len-0.5, x1=max(total_len-1, 0), y0=-H_p2, y1=-H_p2, line=dict(color="red", width=2, dash="dash"))
+                fig_cusum.add_annotation(x=total_len-1, y=H_p2, text=f"+H (P2) = {H_p2:.2f}", showarrow=False, xanchor="left", xshift=5)
+                fig_cusum.add_annotation(x=total_len-1, y=-H_p2, text=f"-H (P2) = {-H_p2:.2f}", showarrow=False, xanchor="left", xshift=5)
+            else:
+                fig_cusum.add_hline(y=H_p1, line_color="red", line_dash="dash", line_width=2, annotation_text=f"+H = {H_p1:.2f}")
+                fig_cusum.add_hline(y=-H_p1, line_color="red", line_dash="dash", line_width=2, annotation_text=f"-H = {-H_p1:.2f}", annotation_position="bottom right")
+                
             fig_cusum.add_hline(y=0, line_color="black", line_width=1.5)
             
             cusum_alarms = []
@@ -338,12 +403,13 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
             v_x_minus, v_y_minus = [], []
             
             for i, idx in enumerate(df_cusum.index):
-                disp_idx = str(idx).split('-', 1)[-1].replace('Sample ', 'S')
-                if df_cusum.loc[idx, "Ci+"] > H: 
-                    cusum_alarms.append(f"**[Type C+]** Point **{disp_idx}** (C+) exceeds H.")
+                disp_idx = str(idx) # Using the full index label like 'P2-Sample 1'
+                current_H = df_cusum.loc[idx, "H_Active"]
+                if df_cusum.loc[idx, "Ci+"] > current_H: 
+                    cusum_alarms.append(f"**[Type C+]** Point **{disp_idx}** (C+) exceeds H ({current_H:.2f}).")
                     v_x_plus.append(i); v_y_plus.append(df_cusum.loc[idx, "Ci+"])
-                if df_cusum.loc[idx, "Ci-"] > H: 
-                    cusum_alarms.append(f"**[Type C-]** Point **{disp_idx}** (C-) exceeds H.")
+                if df_cusum.loc[idx, "Ci-"] > current_H: 
+                    cusum_alarms.append(f"**[Type C-]** Point **{disp_idx}** (C-) exceeds H ({current_H:.2f}).")
                     v_x_minus.append(i); v_y_minus.append(-df_cusum.loc[idx, "Ci-"])
 
             if v_x_plus:
@@ -356,7 +422,7 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 xaxis=dict(tickmode='array', tickvals=x_vals, ticktext=display_labels, tickangle=-45),
                 yaxis_title="Cumulative Sum",
                 hovermode="x unified",
-                margin=dict(l=40, r=40, t=60, b=40),
+                margin=dict(l=40, r=80, t=60, b=40),
                 plot_bgcolor="white"
             )
             fig_cusum.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.3)')
@@ -372,7 +438,7 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 
         # --- TABLE RENDERING ---
         st.markdown("#### 📋 Calculation Table (CUSUM)")
-        df_cusum_display = df_cusum.copy()
+        df_cusum_display = df_cusum.drop(columns=["H_Active"]).copy()
         df_cusum_display.index = [str(x).split('-', 1)[1] for x in df_cusum_display.index]
         st.dataframe(df_cusum_display.style.format(precision=3).highlight_max(subset=["Ci+", "Ci-"], color="#ffebcc"), use_container_width=True)
 
@@ -400,8 +466,20 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
         ind_p2 = df_phase2.iloc[:, 0] if use_phase2 and not df_phase2.empty else None
         mr_p2 = ind_p2.diff().abs() if ind_p2 is not None else None
         
-        render_combined_row(ind_p1_full, ind_p2, x_bar_limit, ucl_i, lcl_i, "Individuals (X) Chart", "Measurement")
-        render_combined_row(mr_p1_full, mr_p2, mr_bar_limit, ucl_mr, lcl_mr, "Moving Range (MR) Chart", "Moving Range")
+        # Calculate Phase 2 Limits if Recalculate Mode
+        ucl_i_p2, lcl_i_p2, x_bar_limit_p2 = None, None, None
+        ucl_mr_p2, lcl_mr_p2, mr_bar_limit_p2 = None, None, None
+        
+        if is_recalc and ind_p2 is not None:
+            x_bar_limit_p2 = ind_p2.mean()
+            mr_bar_limit_p2 = mr_p2.mean()
+            ucl_i_p2 = x_bar_limit_p2 + 3 * (mr_bar_limit_p2 / d2)
+            lcl_i_p2 = x_bar_limit_p2 - 3 * (mr_bar_limit_p2 / d2)
+            ucl_mr_p2 = D4 * mr_bar_limit_p2
+            lcl_mr_p2 = D3 * mr_bar_limit_p2
+
+        render_combined_row(ind_p1_full, ind_p2, x_bar_limit, ucl_i, lcl_i, "Individuals (X) Chart", "Measurement", x_bar_limit_p2, ucl_i_p2, lcl_i_p2)
+        render_combined_row(mr_p1_full, mr_p2, mr_bar_limit, ucl_mr, lcl_mr, "Moving Range (MR) Chart", "Moving Range", mr_bar_limit_p2, ucl_mr_p2, lcl_mr_p2)
 
     # ==========================================
     # 3. X-BAR R CHART LOGIC
@@ -430,8 +508,20 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 xbar_p2 = df_phase2.mean(axis=0) if use_phase2 and not df_phase2.empty else None
                 r_p2 = (df_phase2.max(axis=0) - df_phase2.min(axis=0)) if use_phase2 and not df_phase2.empty else None
                 
-                render_combined_row(xbar_p1, xbar_p2, x_dbl_bar_limit, ucl_x, lcl_x, "X-Bar Chart", "Mean")
-                render_combined_row(r_p1, r_p2, r_bar_limit, ucl_r, lcl_r, "R Chart", "Range")
+                ucl_x_p2, lcl_x_p2, x_dbl_bar_limit_p2 = None, None, None
+                ucl_r_p2, lcl_r_p2, r_bar_limit_p2 = None, None, None
+                
+                if is_recalc and xbar_p2 is not None:
+                    c2 = get_constants(sample_size_p2) # Dynamic constant in case Phase 2 sample size differs
+                    r_bar_limit_p2 = r_p2.mean()
+                    x_dbl_bar_limit_p2 = xbar_p2.mean()
+                    ucl_x_p2 = x_dbl_bar_limit_p2 + (c2['A2'] * r_bar_limit_p2)
+                    lcl_x_p2 = x_dbl_bar_limit_p2 - (c2['A2'] * r_bar_limit_p2)
+                    ucl_r_p2 = c2['D4'] * r_bar_limit_p2
+                    lcl_r_p2 = c2['D3'] * r_bar_limit_p2
+                
+                render_combined_row(xbar_p1, xbar_p2, x_dbl_bar_limit, ucl_x, lcl_x, "X-Bar Chart", "Mean", x_dbl_bar_limit_p2, ucl_x_p2, lcl_x_p2)
+                render_combined_row(r_p1, r_p2, r_bar_limit, ucl_r, lcl_r, "R Chart", "Range", r_bar_limit_p2, ucl_r_p2, lcl_r_p2)
         else:
             st.warning("⚠️ X-Bar R Chart requires Sample Size (n) > 1.")
 
@@ -462,7 +552,19 @@ if st.button("Generate Combined Charts & Analysis", type="primary"):
                 xbar_p2 = df_phase2.mean(axis=0) if use_phase2 and not df_phase2.empty else None
                 s_p2 = df_phase2.std(axis=0, ddof=1) if use_phase2 and not df_phase2.empty else None
                 
-                render_combined_row(xbar_p1, xbar_p2, x_dbl_bar_limit, ucl_x_s, lcl_x_s, "X-Bar Chart", "Mean")
-                render_combined_row(s_p1, s_p2, s_bar_limit, ucl_s, lcl_s, "S Chart", "Standard Deviation")
+                ucl_x_s_p2, lcl_x_s_p2, x_dbl_bar_limit_s_p2 = None, None, None
+                ucl_s_p2, lcl_s_p2, s_bar_limit_p2 = None, None, None
+                
+                if is_recalc and xbar_p2 is not None:
+                    c2 = get_constants(sample_size_p2)
+                    s_bar_limit_p2 = s_p2.mean()
+                    x_dbl_bar_limit_s_p2 = xbar_p2.mean()
+                    ucl_x_s_p2 = x_dbl_bar_limit_s_p2 + (c2['A3'] * s_bar_limit_p2)
+                    lcl_x_s_p2 = x_dbl_bar_limit_s_p2 - (c2['A3'] * s_bar_limit_p2)
+                    ucl_s_p2 = c2['B4'] * s_bar_limit_p2
+                    lcl_s_p2 = c2['B3'] * s_bar_limit_p2
+                
+                render_combined_row(xbar_p1, xbar_p2, x_dbl_bar_limit, ucl_x_s, lcl_x_s, "X-Bar Chart", "Mean", x_dbl_bar_limit_s_p2, ucl_x_s_p2, lcl_x_s_p2)
+                render_combined_row(s_p1, s_p2, s_bar_limit, ucl_s, lcl_s, "S Chart", "Standard Deviation", s_bar_limit_p2, ucl_s_p2, lcl_s_p2)
         else:
             st.warning("⚠️ X-Bar S Chart requires Sample Size (n) > 1.")
