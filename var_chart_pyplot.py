@@ -177,7 +177,7 @@ def render_dynamic_variable_chart(configs, title, y_label):
         cl.index = idx_names
         lcl.index = idx_names
         
-        alarms, v_idx = check_alarms(data.dropna(), cl, ucl, lcl)
+        alarms, v_idx = check_alarms(data, cl, ucl, lcl)
         all_alarms += [f"**[{cfg['name']}]** {a}" for a in alarms if "✅" not in a]
         all_violations.extend(list(v_idx))
         
@@ -293,7 +293,7 @@ def render_dynamic_variable_chart(configs, title, y_label):
 
 
 # --- MAIN GUI: DATA INPUT ---
-st.subheader("📝 Phase 1: Base Observation Data (Limits Calculation)")
+st.subheader("📝 Phase 1: Base Observation Data")
 columns_p1 = [f"Group {i+1}" for i in range(num_groups_p1)]
 index_p1 = [f"Sample {i+1}" for i in range(sample_size_p1)]
 df_phase1 = st.data_editor(pd.DataFrame(0.0, index=index_p1, columns=columns_p1), use_container_width=True, key="p1_editor")
